@@ -1,0 +1,9 @@
+Small bug when doing a mobius in planetary mode, the pole does not stay vertical (restored only when rotating the sphere with the mouse, creating a saccade).
+
+Put js code (vars and funcs) in a function, to avoid var name conflicts when using with other js libraries, and to turn it into a functionnality.
+
+Global changes: make it more cross-browser.
+
+Map adjuster? (heavy)
+
+Lightweight standalone versions.

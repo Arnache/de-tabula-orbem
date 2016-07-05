@@ -1,3 +1,10 @@
+/* Equirectangular projection (a.k.a. equidistant cylindrical) */
+// Straightforward (long,lat) coordinate system
+/* in the map's coordinate (x,y)
+ * x-coord is proportional to longitude
+ * y-coord to latitude
+ */
+
 precision mediump float;
 
 varying vec3 v_texCoord;
@@ -10,8 +17,6 @@ uniform sampler2D u_sampler;
 uniform mat4 mob_mat;
 
 void main() {
-//  vec4 w=mob_mat*vec4(v_texCoord,1.0);
-//  vec3 sph=normalize(vec3(w.x,w.y,w.z));
   vec3 sph=normalize(vec3(v_texCoord.x,v_texCoord.y,v_texCoord.z));
   vec4 w=mob_mat*vec4(sph,1.0);
   sph=vec3(w.x,w.y,w.z);

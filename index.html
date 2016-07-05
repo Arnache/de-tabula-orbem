@@ -22,7 +22,7 @@ it includes free code from the Internet, in particular
 a library gl-matrix.js by Brandon Jones and Colin MacKenzie IV
 */
 
-// Some default values (others are found in init()
+// Some default values
 var IMAX=120;
 var JMAX=90; 
 var DEFAULT_IMAGE_NAME="planet_Klendathu1200.png";
@@ -32,8 +32,8 @@ var DEFAULT_PROJ="Equi";
 var pi=Math.PI;
 var tau=2*pi;
 
-// user settable parameters
-var proj,turn,flip,ctrl
+// user settable parameters ( default values set in function init() )
+var proj,turn,flip,ctrl,mwheel,mwsens
  ,persp,shading,ambient,shading_model
  ,bg_color,anim,shading_sigma,pole_theta
  ,pole_phi,show_grid,turn_speed,infinity
@@ -80,6 +80,7 @@ var fields = [
 ,{name:'fov-field', element:'fovField', event:'onchange', callback:'fov_set', variable:'fov'}
 ,{name:'wheel-box', element:'wheelBox', event:'onclick', callback:'wheel_set', variable:'wheel'}
 ,{name:'reset-mob', element:'resetMobBut', event:'onclick', callback:'reset_mob'}
+,{name:'mwsens-field', element:'mwsensField', event:'onchange', callback:'mwsens_set', variable:'mwsens'}
 ]; // ,{name:'', element:'', event:'', callback:'', variable:''}
 
 
@@ -217,7 +218,7 @@ function grid_set() {
 
 function speed_set(e) {
   var txt=animSpeedField.value;
-  var ns=parseFloat(txt,10);
+  var ns=parseFloat(txt);
   if(!isNaN(ns)) {
     turn_speed=ns;
   }
@@ -285,7 +286,7 @@ function jmax_set(e) {
 
 function theta_set(e) {
   var txt=poleThetaField.value;
-  var ns=parseFloat(txt,10);
+  var ns=parseFloat(txt);
   if(!isNaN(ns)) {
     pole_theta=ns;
   }
@@ -300,7 +301,7 @@ function theta_set(e) {
 
 function phi_set(e) {
   var txt=polePhiField.value;
-  var ns=parseFloat(txt,10);
+  var ns=parseFloat(txt);
   if(!isNaN(ns)) {
     pole_phi=ns;
   }
@@ -315,7 +316,7 @@ function phi_set(e) {
 
 function persp_set(e) {
   var txt=perspField.value;
-  var ns=parseFloat(txt,10);
+  var ns=parseFloat(txt);
   if(ns!=persp) set_persp(ns);
 /*  if(!isNaN(ns)) {
     if(ns>=0 && ns <1 && ns!=persp) {
@@ -329,7 +330,7 @@ function persp_set(e) {
 
 function ambient_set(e) {
   var txt=shadField.value;
-  var ns=parseFloat(txt,10);
+  var ns=parseFloat(txt);
   if(!isNaN(ns)) {
     if(ns>=0 && ns <=1 && ns!=ambient) {
       ambient=ns;
@@ -341,7 +342,7 @@ function ambient_set(e) {
 
 function sigma_set(e) {
   var txt=shadSigmaField.value;
-  var ns=parseFloat(txt,10);
+  var ns=parseFloat(txt);
   if(!isNaN(ns)) {
     if(ns>=0 && ns!=shading_sigma) {
       shading_sigma=ns;
@@ -353,7 +354,7 @@ function sigma_set(e) {
 
 function shad_angle_set(e) {
   var txt=shadAngleField.value;
-  var ns=parseFloat(txt,10);
+  var ns=parseFloat(txt);
   if(!isNaN(ns) && isFinite(ns)) {
     if(ns!=shading_angle) {
       shading_angle=ns;
@@ -375,9 +376,21 @@ function wheel_set(e) {
 
 function fov_set(e) {
   var txt=fovField.value;
-  var ns=parseFloat(txt,10);
+  var ns=parseFloat(txt);
   if(ns!=fov) set_fov(ns);
   draw_all();
+}
+
+
+function mwsens_set(e) {
+  var txt=mwsensField.value;
+  var ns=parseFloat(txt);
+  if(!isNaN(ns)) {
+    if(ns>=1E-6 && ns <= 1E6) {
+      mwsens=ns;
+    }
+  }
+  mwsensField.value=mwsens;
 }
 
 /* Mouse events */
@@ -415,46 +428,7 @@ function call_mm(e) {
       mat4.rotateX(rotMat,rotMat,-dy);
       orthonormalize(rotMat);
     }
-    else {
-      //var dx=z_mouse.x-z_mouse_0.x;
-      var dy=z_mouse.y-z_mouse_0.y;
-      //var d=Math.sqrt(dx*dx+dy*dy);
 
-      var tR=mat4.create();
-      var aux=mat4.create();
-      var t_aux=mat4.create();
-      var BB=mat4.create();
-      var auxInv=mat4.create();
-
-      var sh=Math.sinh(dy);
-      var ch=Math.cosh(dy);
-      var mt=mat4.clone([
-        1,0,0,0
-       ,0,1,0,0
-       ,0,0,ch,-sh
-       ,0,0,-sh,ch
-      ]);
-
-      //mat4.transpose(tR,rotMat_0);
-      //mat4.multiply(aux,mobMat_0,tR);
-      mat4.multiply(aux,mobMat_0,rotMat_0); // rotMat is already transposed
-      mat4.multiply(aux,aux,mt);
-      mat4.transpose(t_aux,aux);
-      mat4.multiply(BB,aux,t_aux);
-      var x=BB[3];
-      var y=BB[7];
-      var z=BB[11];
-      sh=Math.sqrt(x*x+y*y+z*z);
-      mob_dir[0]=x/sh;
-      mob_dir[1]=y/sh;
-      mob_dir[2]=z/sh;
-      mob_i = Math.asinh(sh)/2;
-      setMobMat();
-      mat4.invert(auxInv,aux);
-      mat4.multiply(rotMat,auxInv,mobMat);
-      mat4.transpose(rotMat,rotMat);
-      orthonormalize(rotMat);
-    }
     draw_all();
   }
 }
@@ -479,12 +453,6 @@ function mouse_down(e) {
   else if(ctrl=='free') {
     rotMat_0=mat4.clone(rotMat);
   }
-  else {
-    rotMat_0=mat4.clone(rotMat);
-    mobMat_0=mat4.clone(mobMat);
-    mob_i_0=mob_i;
-    mob_dir_0=vec3.clone(mob_dir);
-  }
   moving=true;
 }
 
@@ -496,7 +464,6 @@ function mouse_up(e) {
     
     if(!animate && anim) {
       var test;
-      if(ctrl=='mob') test=false;
       if(ctrl=='free') test = (mp_0.x != mp_1.x) || (mp_0.y != mp_1.y);
       if(ctrl=='planet') test = mp_0.x != mp_1.x;
       if(!test) return;
@@ -524,15 +491,62 @@ function mouse_up(e) {
 
 function mouse_wheel(e) {
   if(!wheel) return;
-  if(infinity) {
-    var x=Math.tan(fov*tau/360/2);
-    x *= Math.exp(e.deltaY/100);
-    set_fov(2*Math.atan(x)*360/tau);
+  var dm=-e.deltaY*mwsens;
+  if(e.deltaMode==WheelEvent.DOM_DELTA_PIXEL) dy /= 1;
+  if(e.deltaMode==WheelEvent.DOM_DELTA_LINE) dy /= 100;
+  if(e.deltaMode==WheelEvent.DOM_DELTA_PAGE) dy /= 1000;
+  if(mwheel=="persp") {
+    if(infinity) {
+      var x=Math.tan(fov*tau/360/2);
+      x *= Math.exp(dm/100);
+      set_fov(2*Math.atan(x)*360/tau);
+    }
+    else {
+      var x=-Math.log(1-persp);
+      x -= dm/500;
+      set_persp(1-Math.exp(-x));
+    }
   }
-  else {
-    var x=-Math.log(1-persp);
-    x -= e.deltaY/500;
-    set_persp(1-Math.exp(-x));
+  if(mwheel == "mob") {
+    var dy = dm/200;
+    
+    rotMat_0=mat4.clone(rotMat);
+    mobMat_0=mat4.clone(mobMat);
+//    mob_i_0=mob_i;
+//    mob_dir_0=vec3.clone(mob_dir);
+
+    var tR=mat4.create();
+    var aux=mat4.create();
+    var t_aux=mat4.create();
+    var BB=mat4.create();
+    var auxInv=mat4.create();
+
+    var sh=Math.sinh(dy);
+    var ch=Math.cosh(dy);
+    var mt=mat4.clone([
+      1,0,0,0
+     ,0,1,0,0
+     ,0,0,ch,-sh
+     ,0,0,-sh,ch
+    ]);
+
+    mat4.multiply(aux,mobMat_0,rotMat_0); // rotMat is already transposed
+    mat4.multiply(aux,aux,mt);
+    mat4.transpose(t_aux,aux);
+    mat4.multiply(BB,aux,t_aux);
+    var x=BB[3];
+    var y=BB[7];
+    var z=BB[11];
+    sh=Math.sqrt(x*x+y*y+z*z);
+    mob_dir[0]=x/sh;
+    mob_dir[1]=y/sh;
+    mob_dir[2]=z/sh;
+    mob_i = Math.asinh(sh)/2;
+    setMobMat();
+    mat4.invert(auxInv,aux);
+    mat4.multiply(rotMat,auxInv,mobMat);
+    mat4.transpose(rotMat,rotMat);
+    orthonormalize(rotMat);
   }
   draw_all();
   return false; // prevent window scroll
@@ -998,6 +1012,10 @@ function set_ctrl(ct) {
   }
 }
 
+function set_mwheel(mw) {
+  mwheel=mw;
+}
+
 function set_shad(sh) {
   if(sh!=shading) {
     shading=sh;
@@ -1117,13 +1135,17 @@ function init() {
     window[list.element][list.event]=window[list.callback];
   }
   
+  // default values
+  
   infinity=false;
   show_grid=false;
   alpha=0;
   alpha=beta;
   ctrl="planet";
+  mwheel="persp";
+  mwsens=1;
   turn=0;
-  anim=false;
+  anim=true;
   flip=false;
   flipBox.checked=flip;
   proj=DEFAULT_PROJ;
@@ -1168,6 +1190,11 @@ function init() {
   for(var i=0; i<radiobuts.length; i++) {
     radiobuts[i].onclick= function(evt) { set_ctrl(this.value); };
     if(radiobuts[i].value==ctrl) radiobuts[i].checked=true;
+  }
+  radiobuts=document.getElementsByName("mwheel"); 
+  for(var i=0; i<radiobuts.length; i++) {
+    radiobuts[i].onclick= function(evt) { set_mwheel(this.value); };
+    if(radiobuts[i].value==mwheel) radiobuts[i].checked=true;
   }
   radiobuts=document.getElementsByName("shad"); 
   for(var i=0; i<radiobuts.length; i++) {
@@ -1260,21 +1287,27 @@ function init() {
 <label>Control method:</label>
 <input type="radio" name="ctrl" value="planet" checked> Planetary</input>
 <input type="radio" name="ctrl" value="free"> Free</input>
-<input type="radio" name="ctrl" value="mob"> Mobius</input>
 <br/>
 <input type="checkbox" id="anim-box"></input> Animate
 <br/>
 Pole (planet mode):
 <input id="pole-theta" type="text"></input> &theta;,
 <input id="pole-phi" type="text"></input> &phi; (deg)<br/>
-
 Speed (planet mode): <input type="text" id="anim-speed"></input> deg/sec
-<br/><button id="reset-mob">reset Mobius</button>
 </fieldset>
 
 <fieldset>
-<label>Perspective:</label>
-<input id="persp-field" type="text"></input> factor between 0 and 1
+<label>Mousewheel:</label>
+Sensitivity: <input id="mwsens-field" type="text"></input>
+<br/>
+<input type="radio" name="mwheel" value="persp"> Perspective / F.O.V</input>
+<br/>
+Persp. p=<input id="persp-field" type="text"></input>, 0&leq;p&lt;1
+<br/>
+or F.O.V.=<input type="text" id="fov-field"></input> deg, if <input type="checkbox" id="infinity-box"> Sphere at infinity.</input>
+<br/>
+<input type="radio" name="mwheel" value="mob"> Mobius.</input>
+<button id="reset-mob">reset Mobius</button>
 </fieldset>
 
 <fieldset>
@@ -1300,17 +1333,16 @@ Speed (planet mode): <input type="text" id="anim-speed"></input> deg/sec
 </fieldset>
 
 <fieldset>
-<label>Sphere at infinity:</label>
-<input type="checkbox" id="infinity-box"></input> Enable,
-F.O.V. <input type="text" id="fov-field"></input> deg
-</fieldset>
-
-<fieldset>
 <label>Enable mousewheel:</label>
 <input type="checkbox" id="wheel-box"></input>
 </fieldset>
 </td>
 </table>
-Spheremap viewer using WebGL. Sample map "planet Klendathu" CC-BY Robert Stein III (2010). Matrix toolset by Brandon Jones, Colin MacKenzie IV. The rest is CC-BY-SA Arnaud Chéritat (2016). If you're lucky, you can save the image by right-clicking it.
+Spheremap viewer using WebGL.<br/>
+Sample map "planet Klendathu" CC-BY Robert Stein III (2010).<br/>
+Matrix toolset by Brandon Jones, Colin MacKenzie IV.<br/>
+The rest is CC-BY-SA Arnaud Chéritat (2016).<br/>
+If you're lucky, you can save the image by right-clicking it.<br/>
+Source code on <a href="https://github.com/Arnache/de-tabula-orbem">GitHub</a>
 </body>
 </html>

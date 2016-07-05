@@ -1,0 +1,9 @@
+Mobius now controlled by the mousewheel instead of click + mouse y-move.
+Option to switch mouse-wheel control from perspective to mobius.
+Mousewhee sensitivity factor control.
+Found a way to slow things down if mousewheel event is due to wheel instead of trackpad.
+Moved "sphere at infinity" and "F.O.V" in the mousewheel <fieldset>
+
+changed parseFloat(str,10) to parseFloat(str) everywhere
+
+Added comments in the fragment shaders that describe the projection.

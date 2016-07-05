@@ -1,3 +1,12 @@
+/* Azimuthal equidistant */
+// polar representation of latitude, longitude, centered on north pole
+/* the map is rescaled to be considered square,
+ * then the biggest disk that fit in this square contains the map
+ * in polar coordinates (r,theta) of this disk, with r normalized from 0 to 1:
+ *  theta: is then the longitude
+ *      r: is proportional to 90-lat i.e. latitude measured from the pole
+ */
+ 
 precision mediump float;
 
 varying vec3 v_texCoord;
@@ -10,8 +19,6 @@ uniform sampler2D u_sampler;
 uniform mat4 mob_mat;
 
 void main() {
-//  vec4 w=mob_mat*vec4(v_texCoord,1.0);
-  //vec3 sph=normalize(vec3(w.x,w.y,w.z));
   vec3 sph=normalize(vec3(v_texCoord.x,v_texCoord.y,v_texCoord.z));
   vec4 w=mob_mat*vec4(sph,1.0);
   sph=vec3(w.x,w.y,w.z);
