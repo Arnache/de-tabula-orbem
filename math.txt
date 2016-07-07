@@ -1,0 +1,39 @@
+Pb: gl-matrix only implements a version of rotateX that rotates about the object's X-axis and not also a version that would rotate about the world X-axis.
+
+In mathematican's convention (vectors are columns and go on the right of the matrix):
+the first one amounts to do
+M <- M.i(R)      (where i(R) denotes the inverse of R)
+the second one to do
+M <- R.M
+where M denotes the matrix that transforms vertices of the object as placed statically in memory to vertices of the object as placed dynamically in the world.
+
+WebGL implements a "standard" multiplication v <- M.v
+and a "variant" v <- v.M which amounts to doing v <- t(M).v
+where t denotes transposition
+
+Note: this is a bad notation because we loose associativity.
+
+What I do to solve the pb mentionned in the beginning: I keep Q=t(M) in memory instead of M, use rotateX on Q and use WebGL's v <- v.Q
+
+Note: this trick would fail if there were a translation part in M.
+
+-----
+
+In the vertex Shader we transform the object vertex v into the pre-screen vertex
+c = Proj.Rot.v
+(v is the vertex in object-coord, w = Rot.v in world-coord, c = Proj.w in camera-coord) 
+
+The shader is fed with Proj and tr(Rot) as "uniforms" i.e. they are the same for all vertices.
+
+Proj is a world-to-camera projection with the observer at world coordinate [0,0,-1/persp]
+where persp is a parameter in [0,1[
+
+In the fragment shader, the vertex position may be slightly inside the sphere because of the triangular approximation. We thus have to apply normalize() to it.
+
+This is the vertex position in the object-coord that is passed to the fragment shader.
+
+The point s=Mob.v is computed and used to look-up the color on the sphere map (each shader then computes the point on the provided rectangular image to which s corresponds depending on the chosen projection).
+
+Particularity: here Mob is only of the form of a zoom on a point (3 real parameters) instead of being in the full Mobius group (6 real parameters). This makes zooming tricky because one has to meddle with Rot in the meanwhile (see the function mouse_wheel() in the case mwheel == "mob"). I may soon change this (see the pb mentionned in to-be-done.txt).
+
+

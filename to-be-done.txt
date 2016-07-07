@@ -1,9 +1,15 @@
-Small bug when doing a mobius in planetary mode, the pole does not stay vertical (restored only when rotating the sphere with the mouse, creating a saccade).
+Small bug when doing a mobius in planetary mode, the pole axis does not stay in the x-z plane (restored only when rotating the sphere with the mouse, creating a saccade).
+In fact in free mode the pole axis also moves under a mobius. There is no saccade there but it would look better if it did not move. Some analysis is required here.
+Proposed solution: to change slightly the mobius model. This will make mobius zooming much simpler anyway. Commit first!
 
-Put js code (vars and funcs) in a function, to avoid var name conflicts when using with other js libraries, and to turn it into a functionnality.
+Placeholder text when there is no image
+
+Why does the FF console complain about syntax error on the beginning of each shader?
 
 Global changes: make it more cross-browser.
 
 Map adjuster? (heavy)
 
 Lightweight standalone versions.
+
+Bug? Reset mobius in extreme case may have to reset also RotMat

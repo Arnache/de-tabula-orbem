@@ -1,3 +1,5 @@
+#version 100
+
 /* Azimuthal equidistant */
 // polar representation of latitude, longitude, centered on north pole
 /* the map is rescaled to be considered square,

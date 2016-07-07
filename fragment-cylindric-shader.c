@@ -1,3 +1,5 @@
+#version 100
+
 /* Cylindrical projection (a.k.a. Lambert cylindrical equal-area) */
 // Project the sphere to a cylinder by drawing a line orthogonal to the z-axis
 /* in the map's coordinate (x,y)

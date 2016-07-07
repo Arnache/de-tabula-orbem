@@ -1,3 +1,5 @@
+#version 100
+
 /* Lambert azimuthal equal-area (sometimes used in spheremaps) */
 // Property: preserves area.
 // Note: centered on a point on the equator instead of one of the poles.

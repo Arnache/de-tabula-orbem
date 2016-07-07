@@ -1,3 +1,5 @@
+#version 100
+
 /* Stereographic projection */
 // Unique plane (a version with two hemispheres may be programmed in the future)
 // Property: conformal
@@ -22,7 +24,7 @@ uniform sampler2D u_sampler;
 uniform mat4 mob_mat;
 
 void main() {
-  vec3 sph=normalize(vec3(v_texCoord.x,v_texCoord.y,v_texCoord.z));
+  vec3 sph=normalize(vec3(v_texCoord.x,v_texCoord.y,v_texCoord.z)); 
   vec4 w=mob_mat*vec4(sph,1.0);
   vec4 col;
   sph=vec3(w.x,w.y,w.z);

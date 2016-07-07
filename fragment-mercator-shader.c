@@ -1,3 +1,5 @@
+#version 100
+
 /* Mercator's projection */
 // conformal map from the sphere minus north and south pole to the bi-infinite cylinder
 // main propery: loxodromes are straight

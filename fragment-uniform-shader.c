@@ -1,3 +1,5 @@
+#version 100
+
 // Used when drawing the cylinder materialising the poles.
 
 precision mediump float;

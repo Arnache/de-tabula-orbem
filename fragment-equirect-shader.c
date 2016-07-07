@@ -1,3 +1,5 @@
+#version 100
+
 /* Equirectangular projection (a.k.a. equidistant cylindrical) */
 // Straightforward (long,lat) coordinate system
 /* in the map's coordinate (x,y)

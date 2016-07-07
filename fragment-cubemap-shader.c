@@ -1,3 +1,5 @@
+#version 100
+
 /* cube map */
 /* (this is partially done in the javascript part)
  * The rectangle is rescaled to have proportions hor,vert || 4x3

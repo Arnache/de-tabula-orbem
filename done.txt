@@ -7,3 +7,15 @@ Moved "sphere at infinity" and "F.O.V" in the mousewheel <fieldset>
 changed parseFloat(str,10) to parseFloat(str) everywhere
 
 Added comments in the fragment shaders that describe the projection.
+
+-> committed on July 5th 2016
+
+----
+
+Put js code (vars and funcs) in a function, to avoid var name conflicts when using with other js libraries, and to turn it into a functionnality.
+
+Added a math.txt file explaining a bit of the math (matrix stuff for the moment).
+
+Corrected Oren Nayar for case persp is not 0.
+Corrected formula for Oren Nayar (forgot normalize 2x)
+
