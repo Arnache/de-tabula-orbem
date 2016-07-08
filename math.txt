@@ -34,6 +34,3 @@ This is the vertex position in the object-coord that is passed to the fragment s
 
 The point s=Mob.v is computed and used to look-up the color on the sphere map (each shader then computes the point on the provided rectangular image to which s corresponds depending on the chosen projection).
 
-Particularity: here Mob is only of the form of a zoom on a point (3 real parameters) instead of being in the full Mobius group (6 real parameters). This makes zooming tricky because one has to meddle with Rot in the meanwhile (see the function mouse_wheel() in the case mwheel == "mob"). I may soon change this (see the pb mentionned in to-be-done.txt).
-
-

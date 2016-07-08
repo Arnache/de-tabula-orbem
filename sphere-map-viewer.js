@@ -33,7 +33,7 @@ var proj,turn,flip,ctrl,mwheel,mwsens
 var SIZE,SCALE;
 var gl,canvas,offCanvas,image,img,mm_timer=null;
 var texture,rotMat,pMat,pMat2,sVec,rotMat_0;
-var mob_dir,mob_i,mobMat;
+var mobMat;
 // the compiled shader programs (each uses a vertex + a fragment shaders)
 var programMerc,programEqui,programCyl,programSphe,programAzi,programCube,programUnif,programSter;
 // vertex and index buffers for WebGL
@@ -122,12 +122,13 @@ function setPMat() { // observer is at [0,0,-1/p]
   ]);
 }
 
-function setMobMat() {
-  var x=mob_dir[0];
-  var y=mob_dir[1];
-  var z=mob_dir[2];
-  var sh=Math.sinh(mob_i);
-  var ch=Math.cosh(mob_i);
+/*
+function getMobMat(dir,s) {
+  var x=dir[0];
+  var y=dir[1];
+  var z=dir[2];
+  var sh=Math.sinh(s);
+  var ch=Math.cosh(s);
   var w=ch-1;
   mobMat=mat4.clone([  
     1+w*x*x,   w*x*y,   w*x*z, sh*x
@@ -135,22 +136,16 @@ function setMobMat() {
    ,  w*z*x,   w*z*y, 1+w*z*z, sh*z
    ,   sh*x,    sh*y,    sh*z, ch
   ]);
-  /*
-  mobMat=mat4.clone([ 
-    v+w*x*x,   w*x*y,   w*x*z, u*x
-   ,  w*y*x, v+w*y*y,   w*y*z, u*y
-   ,  w*z*x,   w*z*y, v+w*z*z, u*z
-   ,    u*x,     u*y,     u*z, 1
-  ]); // not unitary but this choice makes it at least bounded
-  */
 }
+*/
 
 function reset_mob() {
-  mob_i=0;
-  mob_dir[0]=0;
-  mob_dir[1]=0;
-  mob_dir[2]=-1;
-  setMobMat();
+  mobMat=mat4.clone([  
+     1, 0, 0, 0
+   , 0, 1, 0, 0
+   , 0, 0, 1, 0
+   , 0, 0, 0, 1
+  ]);
   draw_all();
 }
 
@@ -494,12 +489,6 @@ function mouse_wheel(e) {
 //    rotMat_0=mat4.clone(rotMat);
 //    mobMat_0=mat4.clone(mobMat);
 
-    var tR=mat4.create();
-    var aux=mat4.create();
-    var t_aux=mat4.create();
-    var BB=mat4.create();
-    var auxInv=mat4.create();
-
     var sh=Math.sinh(dy);
     var ch=Math.cosh(dy);
     var mt=mat4.clone([
@@ -509,27 +498,13 @@ function mouse_wheel(e) {
      ,0,0,-sh,ch
     ]);
 
-    mat4.multiply(aux,mobMat,rotMat); // rotMat is already transposed
-    mat4.multiply(aux,aux,mt);
-    // now aux contains mobMat*rotMat*mt
-    mat4.transpose(t_aux,aux);
-    mat4.multiply(BB,aux,t_aux);
-    // now BB contains aux*tr(aux)
-    var x=BB[3];
-    var y=BB[7];
-    var z=BB[11];
-    sh=Math.sqrt(x*x+y*y+z*z);
-    mob_dir[0]=x/sh;
-    mob_dir[1]=y/sh;
-    mob_dir[2]=z/sh;
-    mob_i = Math.asinh(sh)/2;
-    setMobMat();
-    // We have just updated mobMat
-    mat4.invert(auxInv,aux);
-    mat4.multiply(rotMat,auxInv,mobMat);
-    mat4.transpose(rotMat,rotMat);
-    // now rotMat contains tr(aux^-1*mobMat)
-    orthonormalize(rotMat);
+    tR=mat4.create();
+    mat4.transpose(tR,rotMat);
+
+    mat4.multiply(mobMat,mobMat,rotMat);
+    mat4.multiply(mobMat,mobMat,mt);
+    mat4.multiply(mobMat,mobMat,tR);
+//    cure mobMat?
   }
   draw_all();
   return false; // prevent window scroll
@@ -962,7 +937,8 @@ function sel_prog(pr) {
 }
 
 function set_shader(pr) {
-  var prog=sel_prog(pr); 
+  var prog=sel_prog(pr);
+//  var t1=window.performance.now();
   positionLoc = gl.getAttribLocation(prog, "a_position"); 
   samplerLoc = gl.getUniformLocation(prog, "u_sampler");
   posMatLoc = gl.getUniformLocation(prog, "pos_mat_tr");
@@ -983,6 +959,8 @@ function set_shader(pr) {
     ratioLoc = gl.getUniformLocation(prog, "u_ratio");
   }
   gl.enableVertexAttribArray(positionLoc);
+//  var t2=window.performance.now();
+//  console.log(t2-t1);
     //  if(image) draw_all();
 }
 
@@ -1189,10 +1167,8 @@ function init(lecanvas,parameters) {
   turn_speed=0;
   fov=45;
   wheel=true;
-  mob_i=0.0;
-  mob_dir=vec3.fromValues(0,0,-1);
 
-  setMobMat();
+  mobMat=mat4.create();
   setRotMat();
   setPMat();
   setP2Mat();
