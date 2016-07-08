@@ -1,13 +1,7 @@
 Placeholder text when there is no image
 
-Why does the FF console complain about syntax error on the beginning of each shader?
-
 Global changes: make it more cross-browser.
 
 Map adjuster? (heavy)
 
 Lightweight standalone versions.
-
-Bug? Reset mobius in extreme case may have to reset also RotMat
-
-Would caching the gl.getUniformLocation... improve the performance?

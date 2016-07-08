@@ -31,14 +31,15 @@ var proj,turn,flip,ctrl,mwheel,mwsens
 // a bunch of other global variables
 
 var SIZE,SCALE;
-var gl,canvas,offCanvas,image,img,mm_timer=null;
+var gl,canvas,offCanvas,image,mm_timer=null;
 var texture,rotMat,pMat,pMat2,sVec,rotMat_0;
 var mobMat;
 // the compiled shader programs (each uses a vertex + a fragment shaders)
-var programMerc,programEqui,programCyl,programSphe,programAzi,programCube,programUnif,programSter;
+//var programMerc, programEqui, programCyl, programSphe, programAzi, programCube, programUnif, programSter;
+// locations
+var locsMerc,locsEqui,locsCyl,locsSphe,locsAzi,locsCube,locsUnif,locsSter;
 // vertex and index buffers for WebGL
-var sphIndBuf,sphVertBuf,cylIndBuf,cylVertBuf,gridVertBuf,nbTri,nbTriCyl,nbLines,cubeVertBuf,cubeIndBuf;
-//var positionLoc,samplerLoc,sourceLoc,ratioLoc,ambientLoc,modeLoc,sigmaLoc;
+var sphIndBuf, sphVertBuf, cylIndBuf, cylVertBuf, gridVertBuf, nbTri, nbTriCyl, nbLines, cubeVertBuf, cubeIndBuf;
 var orenNayar = {C1:0, C2:0, C3:0, C4:0};
 
 // animation variables
@@ -73,6 +74,17 @@ var fields = [
 ,{name:'mwsens-field', element:'mwsensField', event:'onchange', callback:'mwsens_set', variable:'mwsens'}
 ]; // ,{name:'', element:'', event:'', callback:'', variable:''}
 
+// The object below will be enriched in createPrograms()
+var progs = {
+   Unif: {file: "fragment-uniform-shader.c"}
+  ,Ster: {file: "fragment-stereographic-shader.c"}
+  ,Merc: {file: "fragment-mercator-shader.c"}
+  ,Equi: {file: "fragment-equirect-shader.c"}
+  ,Cyl:  {file: "fragment-cylindric-shader.c"}
+  ,Sphe: {file: "fragment-spheremap-shader.c"}
+  ,Azi:  {file: "fragment-azi-shader.c"}
+  ,Cube: {file: "fragment-cubemap-shader.c"}
+};
 
 // copy a 2d point an object of type {x: ,y: }
 function copy_p(p) {
@@ -121,23 +133,6 @@ function setPMat() { // observer is at [0,0,-1/p]
    ,0,0,0.01*1,1
   ]);
 }
-
-/*
-function getMobMat(dir,s) {
-  var x=dir[0];
-  var y=dir[1];
-  var z=dir[2];
-  var sh=Math.sinh(s);
-  var ch=Math.cosh(s);
-  var w=ch-1;
-  mobMat=mat4.clone([  
-    1+w*x*x,   w*x*y,   w*x*z, sh*x
-   ,  w*y*x, 1+w*y*y,   w*y*z, sh*y
-   ,  w*z*x,   w*z*y, 1+w*z*z, sh*z
-   ,   sh*x,    sh*y,    sh*z, ch
-  ]);
-}
-*/
 
 function reset_mob() {
   mobMat=mat4.clone([  
@@ -302,13 +297,6 @@ function persp_set(e) {
   var txt=perspField.value;
   var ns=parseFloat(txt);
   if(ns!=persp) set_persp(ns);
-/*  if(!isNaN(ns)) {
-    if(ns>=0 && ns <1 && ns!=persp) {
-      persp=ns;
-    }
-  }
-  perspField.value=persp;
-  setPMat();*/
   draw_all();
 }
 
@@ -329,7 +317,7 @@ function sigma_set(e) {
   var ns=parseFloat(txt);
   if(!isNaN(ns)) {
     if(ns>=0 && ns!=shading_sigma) {
-      set_sigma(shading_sigma);
+      set_sigma(ns);
     }
   }
   shadSigmaField.value=shading_sigma;
@@ -466,7 +454,7 @@ function mouse_up(e) {
 
 function mouse_wheel(e) {
   if(!wheel) return;
-  var dm=-e.deltaY*mwsens;
+  var dm=e.deltaY*mwsens;
   if(e.deltaMode==WheelEvent.DOM_DELTA_PIXEL) dy /= 1;
   if(e.deltaMode==WheelEvent.DOM_DELTA_LINE) dy /= 100;
   if(e.deltaMode==WheelEvent.DOM_DELTA_PAGE) dy /= 1000;
@@ -494,8 +482,8 @@ function mouse_wheel(e) {
     var mt=mat4.clone([
       1,0,0,0
      ,0,1,0,0
-     ,0,0,ch,-sh
-     ,0,0,-sh,ch
+     ,0,0,ch,sh
+     ,0,0,sh,ch
     ]);
 
     tR=mat4.create();
@@ -690,7 +678,8 @@ function makeSphere() {
       vert.push(x,y,z);
     }
   }
-  if(!sphVertBuf) sphVertBuf=gl.createBuffer();
+  if(sphVertBuf) gl.deleteBuffer(sphVertBuf);
+  sphVertBuf=gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, sphVertBuf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vert), gl.STATIC_DRAW);
   gl.bindBuffer(gl.ARRAY_BUFFER, null); // not strictly needed
@@ -709,7 +698,8 @@ function makeSphere() {
       }
     }
   }
-  if(!sphIndBuf) sphIndBuf=gl.createBuffer();
+  if(sphIndBuf) gl.deleteBuffer(sphIndBuf);
+  sphIndBuf=gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphIndBuf);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(ind), gl.STATIC_DRAW);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // not strictly needed
@@ -735,6 +725,8 @@ function makeCube() {
    ,2,3,6 , 7,6,3
    ,1,0,5 , 4,5,0
   ];
+  if(cubeVertBuf) gl.deleteBuffer(cubeVertBuf);
+  if(cubeIndBuf) gl.deleteBuffer(cubeIndBuf);
   cubeVertBuf=gl.createBuffer();
   cubeIndBuf=gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertBuf);
@@ -793,6 +785,7 @@ function makeGrid() {
       nbLines++;
     }
   }
+  if(gridVertBuf) g.deleteBuffer(gridVertBuf);
   gridVertBuf=gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, gridVertBuf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vert), gl.STATIC_DRAW);
@@ -822,77 +815,52 @@ function createFragmentShader(str) {
     
 function createPrograms() {
   var str;
-  
+    
   str=readTextFile("vertex-shader.c");
   var vertexShader = createVertexShader(str);
-  str=readTextFile("fragment-stereographic-shader.c");
-  var fragmentStereographicShader = createFragmentShader(str);
-  str=readTextFile("fragment-mercator-shader.c");
-  var fragmentMercatorShader = createFragmentShader(str);
-  str=readTextFile("fragment-equirect-shader.c");
-  var fragmentEquirectShader = createFragmentShader(str);
-  str=readTextFile("fragment-cylindric-shader.c");
-  var fragmentCylindricShader = createFragmentShader(str);
-  str=readTextFile("fragment-spheremap-shader.c");
-  var fragmentSpheremapShader = createFragmentShader(str);
-  str=readTextFile("fragment-azi-shader.c");
-  var fragmentAziShader = createFragmentShader(str);
-  str=readTextFile("fragment-cubemap-shader.c");
-  var fragmentCubeShader = createFragmentShader(str);
-  str=readTextFile("fragment-uniform-shader.c");
-  var fragmentUnifShader = createFragmentShader(str);
   
-  programSter = gl.createProgram();
-  gl.attachShader(programSter, vertexShader);
-  gl.attachShader(programSter, fragmentStereographicShader);
-  gl.linkProgram(programSter);
-  
-  programMerc = gl.createProgram();
-  gl.attachShader(programMerc, vertexShader);
-  gl.attachShader(programMerc, fragmentMercatorShader);
-  gl.linkProgram(programMerc);
-  
-  programEqui = gl.createProgram();
-  gl.attachShader(programEqui, vertexShader);
-  gl.attachShader(programEqui, fragmentEquirectShader);
-  gl.linkProgram(programEqui);
+  for(var name in progs) {
+    p=progs[name];
+    str=readTextFile(p.file);
+    p.fragmentShader=createFragmentShader(str);
+    p.program=gl.createProgram();
+    gl.attachShader(p.program, vertexShader);
+    gl.attachShader(p.program, p.fragmentShader);
+    gl.linkProgram(p.program);
+    p.locs = {};
+    p.locs.position = gl.getAttribLocation(p.program, "a_position"); 
+    p.locs.sampler = gl.getUniformLocation(p.program, "u_sampler");
+    p.locs.posMat = gl.getUniformLocation(p.program, "pos_mat_tr");
+    p.locs.mobMat = gl.getUniformLocation(p.program, "mob_mat");
+    p.locs.persMat = gl.getUniformLocation(p.program, "pers_mat");
+    p.locs.source = gl.getUniformLocation(p.program, "source");
+    p.locs.ambient = gl.getUniformLocation(p.program, "ambient");
+    p.locs.sigma = gl.getUniformLocation(p.program, "sigma");
+    p.locs.mode = gl.getUniformLocation(p.program, "mode");
+    p.locs.c1 = gl.getUniformLocation(p.program, "c1");
+    p.locs.c2 = gl.getUniformLocation(p.program, "c2");
+//    p.locs.c3 = gl.getUniformLocation(p.program, "c3");
+//    p.locs.c4 = gl.getUniformLocation(p.program, "c4");
+    if(name=='Unif') {
+      p.locs.color = gl.getUniformLocation(p.program, "color");
+    }
+    else {
+      p.locs.ratio = gl.getUniformLocation(p.program, "u_ratio");
+    }
+  }
 
-  programCyl = gl.createProgram();
-  gl.attachShader(programCyl, vertexShader);
-  gl.attachShader(programCyl, fragmentCylindricShader);
-  gl.linkProgram(programCyl);
-
-  programSphe = gl.createProgram();
-  gl.attachShader(programSphe, vertexShader);
-  gl.attachShader(programSphe, fragmentSpheremapShader);
-  gl.linkProgram(programSphe);
-
-  programAzi = gl.createProgram();
-  gl.attachShader(programAzi, vertexShader);
-  gl.attachShader(programAzi, fragmentAziShader);
-  gl.linkProgram(programAzi);
-
-  programCube = gl.createProgram();
-  gl.attachShader(programCube, vertexShader);
-  gl.attachShader(programCube, fragmentCubeShader);
-  gl.linkProgram(programCube);
-
-  programUnif = gl.createProgram();
-  gl.attachShader(programUnif, vertexShader);
-  gl.attachShader(programUnif, fragmentUnifShader);
-  gl.linkProgram(programUnif);
-  
   //  gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+  
 }
 
-function readTextFile(file,dest) {
+function readTextFile(file) {
     var rawFile = new XMLHttpRequest();
+    rawFile.overrideMimeType('text/plain');
     rawFile.open("GET", file, false); // false veut dire synchrone
     rawFile.send(null);
     if(rawFile.status === 200 || rawFile.status == 0)
     {
         var allText = rawFile.responseText; 
-        // console.log(allText.slice(0));
         return allText.slice(0); // copy
     }
 }
@@ -904,64 +872,15 @@ function set_anim(a) {
   draw_all();
 }
 
-function sel_prog(pr) {
-  var prog=programEqui; // by reference
-  switch(pr) {
-    case 'Ster': 
-      prog=programSter;
-      break;
-    case 'Merc': 
-      prog=programMerc;
-      break;
-    case 'Equi': 
-      prog=programEqui;
-      break;
-    case 'Cyl': 
-      prog=programCyl;
-      break;
-    case 'Sphe': 
-      prog=programSphe;
-      break;
-    case 'Azi': 
-      prog=programAzi;
-      break;
-    case 'Cube': 
-      prog=programCube;
-      break;
-    case 'Unif': 
-      prog=programUnif;
-      break;
-  }
-  gl.useProgram(prog);
-  return(prog); // this is Javascript so returns a reference
-}
 
 function set_shader(pr) {
-  var prog=sel_prog(pr);
+  var prog=progs[pr];
+  gl.useProgram(prog.program);
 //  var t1=window.performance.now();
-  positionLoc = gl.getAttribLocation(prog, "a_position"); 
-  samplerLoc = gl.getUniformLocation(prog, "u_sampler");
-  posMatLoc = gl.getUniformLocation(prog, "pos_mat_tr");
-  mobMatLoc = gl.getUniformLocation(prog, "mob_mat");
-  persMatLoc = gl.getUniformLocation(prog, "pers_mat");
-  sourceLoc = gl.getUniformLocation(prog, "source");
-  ambientLoc = gl.getUniformLocation(prog, "ambient");
-  sigmaLoc = gl.getUniformLocation(prog, "sigma");
-  modeLoc = gl.getUniformLocation(prog, "mode");
-  c1Loc = gl.getUniformLocation(prog, "c1");
-  c2Loc = gl.getUniformLocation(prog, "c2");
-  c3Loc = gl.getUniformLocation(prog, "c3");
-  c4Loc = gl.getUniformLocation(prog, "c4");
-  if(pr=='Unif') {
-    colorLoc = gl.getUniformLocation(prog, "color");
-  }
-  else {
-    ratioLoc = gl.getUniformLocation(prog, "u_ratio");
-  }
-  gl.enableVertexAttribArray(positionLoc);
+  gl.enableVertexAttribArray(prog.locs.position);
 //  var t2=window.performance.now();
 //  console.log(t2-t1);
-    //  if(image) draw_all();
+    //  draw_all();
 }
 
 function set_turn(ro) {
@@ -1015,90 +934,88 @@ function draw_all() {
   gl.viewport(0, 0, canvas.width, canvas.height);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+  if(typeof image === 'undefined') {
+    return;
+  }
+
 //  gl.uniform2f(zLoc,z0.re,z0.im);
+
+  var locs=progs[proj].locs;
   
   gl.activeTexture(gl.TEXTURE0);
   if(proj=='Cube') gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
   else gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.uniform1i(samplerLoc, 0);
+  gl.uniform1i(locs.sampler, 0);
   
-  gl.uniformMatrix4fv(posMatLoc,false,rotMat);
-  gl.uniformMatrix4fv(mobMatLoc,false,mobMat);
+  gl.uniformMatrix4fv(locs.posMat,false,rotMat);
+  gl.uniformMatrix4fv(locs.mobMat,false,mobMat);
   if(infinity) {
-    gl.uniformMatrix4fv(persMatLoc,false,pMat2);
-    gl.uniform1f(ambientLoc, 1);
+    gl.uniformMatrix4fv(locs.persMat,false,pMat2);
+    gl.uniform1f(locs.ambient, 1);
     gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertBuf);
-    gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(locs.position, 3, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeIndBuf);
     gl.drawElements(gl.TRIANGLES, 3*12, gl.UNSIGNED_SHORT, 0);
   }
-  else {gl.uniformMatrix4fv(persMatLoc,false,pMat);
-    gl.uniform3fv(sourceLoc,sVec);
-    gl.uniform1f(ratioLoc, offCanvas.height/offCanvas.width); 
-    gl.uniform1f(ambientLoc, ambient);
-//    gl.uniform1i(modeLoc, shading_model=="Oren-Nayar" ? 1 : 0);
+  else {gl.uniformMatrix4fv(locs.persMat,false,pMat);
+    gl.uniform3fv(locs.source,sVec);
+    gl.uniform1f(locs.ratio, offCanvas.height/offCanvas.width); 
+    gl.uniform1f(locs.ambient, ambient);
+//    gl.uniform1i(locs.mode, shading_model=="Oren-Nayar" ? 1 : 0);
     if(shading_model=="Oren-Nayar") {
-      gl.uniform1i(modeLoc, 1);
-      gl.uniform1f(c1Loc, orenNayar.C1);
-      gl.uniform1f(c2Loc, orenNayar.C2);
-      gl.uniform1f(c3Loc, orenNayar.C3);
-      gl.uniform1f(c4Loc, orenNayar.C4);
+      gl.uniform1i(locs.mode, 1);
+      gl.uniform1f(locs.c1, orenNayar.C1);
+      gl.uniform1f(locs.c2, orenNayar.C2);
+//      gl.uniform1f(locs.c3, orenNayar.C3);
+//      gl.uniform1f(locs.c4, orenNayar.C4);
     }
     else
-      gl.uniform1i(modeLoc, 0);
-    gl.uniform1f(sigmaLoc, shading_sigma);
+      gl.uniform1i(locs.mode, 0);
+    gl.uniform1f(locs.sigma, shading_sigma);
     gl.bindBuffer(gl.ARRAY_BUFFER, sphVertBuf);
-    gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(locs.position, 3, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphIndBuf);
     gl.drawElements(gl.TRIANGLES, 3*nbTri, gl.UNSIGNED_SHORT, 0);
   }
   
   if(show_grid) {
     set_shader('Unif');
-    gl.uniformMatrix4fv(posMatLoc,false,rotMat);
-    gl.uniform4f(colorLoc, 1.0, 1.0, 1.0, 0.33); 
+    locs=progs['Unif'].locs;
+    gl.uniformMatrix4fv(locs.posMat,false,rotMat);
+    gl.uniform4f(locs.color, 1.0, 1.0, 1.0, 0.33); 
     if(infinity) {
-      gl.uniformMatrix4fv(persMatLoc,false,pMat2);
-      gl.uniform1f(ambientLoc, 1);
+      gl.uniformMatrix4fv(locs.persMat,false,pMat2);
+      gl.uniform1f(locs.ambient, 1);
     }
     else {
-      gl.uniformMatrix4fv(persMatLoc,false,pMat);
-      gl.uniform3fv(sourceLoc,sVec); 
-      gl.uniform1f(ambientLoc, ambient);
+      gl.uniformMatrix4fv(locs.persMat,false,pMat);
+      gl.uniform3fv(locs.source,sVec); 
+      gl.uniform1f(locs.ambient, ambient);
       if(shading_model=="Oren-Nayar") {
-        gl.uniform1i(modeLoc, 1);
-        gl.uniform1f(c1Loc, orenNayar.C1);
-        gl.uniform1f(c2Loc, orenNayar.C2);
-        gl.uniform1f(c3Loc, orenNayar.C3);
-        gl.uniform1f(c4Loc, orenNayar.C4);
+        gl.uniform1i(locs.mode, 1);
+        gl.uniform1f(locs.c1, orenNayar.C1);
+        gl.uniform1f(locs.c2, orenNayar.C2);
+//        gl.uniform1f(locs.c3, orenNayar.C3);
+//        gl.uniform1f(locs.c4, orenNayar.C4);
       }
       else
-        gl.uniform1i(modeLoc, 0);
-      gl.uniform1f(sigmaLoc, shading_sigma);
+        gl.uniform1i(locs.mode, 0);
+      gl.uniform1f(locs.sigma, shading_sigma);
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, gridVertBuf);
-    gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(locs.position, 3, gl.FLOAT, false, 0, 0);
     // no support for line thickness different from 1 in browsers in 2016
     gl.drawArrays(gl.LINES, 0, 2*nbLines);
-/*  var tempBuf=gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, tempBuf);
-  var R=1.1;
-  var c0=Math.cos(pole_theta*tau/360)
-     ,s0=Math.sin(pole_theta*tau/360)
-     ,c1=Math.cos(pole_phi*tau/360)
-     ,s1=Math.sin(pole_phi*tau/360);
-  var vert=[R*s0*c1,R*s1,-R*c0*c1
-           ,-R*s0*c1,-R*s1,R*c0*c1];*/
     if(!infinity) {
       var temp=mat4.create();
       mat4.rotateX(temp,temp,(90-pole_phi)*tau/360);
       mat4.rotateY(temp,temp,pole_theta*tau/360);
       mat4.multiply(temp,temp,rotMat);
-      gl.uniformMatrix4fv(posMatLoc,false,temp);
-      gl.uniform4f(colorLoc, 1.0, 1.0, 0.0, 1.0); 
+      gl.uniformMatrix4fv(locs.posMat,false,temp);
+      gl.uniform4f(locs.color, 1.0, 1.0, 0.0, 1.0); 
 //  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vert), gl.STATIC_DRAW);
       gl.bindBuffer(gl.ARRAY_BUFFER, cylVertBuf);
-      gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+      gl.vertexAttribPointer(locs.position, 3, gl.FLOAT, false, 0, 0);
 //  gl.drawArrays(gl.LINES, 0, 2);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cylIndBuf);
       gl.drawElements(gl.TRIANGLES, 3*nbTriCyl, gl.UNSIGNED_SHORT, 0);
@@ -1133,10 +1050,10 @@ function init(lecanvas,parameters) {
   }
     
   offCanvas=document.createElement('canvas');
-  
+
   SIZE=canvas.height;
   SCALE=SIZE/2;
-  
+
   for(i in fields) { list=fields[i];
     window[list.element]=document.getElementById(list.name);
     window[list.element][list.event]=eval(list.callback); // Security hole @@@
@@ -1158,9 +1075,9 @@ function init(lecanvas,parameters) {
   persp=0.1;
   bg_color={r:0,g:0,b:0};
   shading="oblique";
-  ambient=0.0;
-  shading_angle=35;
-  set_sigma(0.5);
+  ambient=0.2;
+  shading_angle=30;
+  set_sigma(0.4);
   shading_model="Oren-Nayar";
   pole_theta=0;
   pole_phi=90;
@@ -1182,7 +1099,7 @@ function init(lecanvas,parameters) {
   var radiobuts;
   radiobuts=document.getElementsByName("type"); 
   for(var i=0; i<radiobuts.length; i++) {
-    radiobuts[i].onclick= function(evt) { proj=this.value; set_shader(proj); makeTexture(); if(image) draw_all();};
+    radiobuts[i].onclick= function(evt) { proj=this.value; set_shader(proj); makeTexture(); draw_all();};
     if(radiobuts[i].value==proj) radiobuts[i].checked=true;
   }
   radiobuts=document.getElementsByName("turn"); 
