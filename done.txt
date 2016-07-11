@@ -41,3 +41,8 @@ Added a link in README.md to in the demo at https://arnache.github.io/de-tabula-
 (this page was created by creating a branch copy called gh-pages, see gitHub's documentation)
 
 --> committed on July 8th 2016
+
+----
+
+mipmapping option (with anisotropic filtering)
+

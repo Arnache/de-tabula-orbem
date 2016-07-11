@@ -1,0 +1,5 @@
+The image Mercator_projection_SW.jpg is CC-BY-SA by Daniel R. Strebe (22:35, 15 August 2011)
+The image Mercator_1569_world_map_composite.png is public domain
+The image KS-cubemap-2-s.png is CC-BY-SA by Arnaud Chéritat 
+The image planet_Klendathu1200.png is CC-BY Robert Stein III (2010)
+The module gl-matrix.js has its licence in the file (Brandon Jones, Colin MacKenzie IV, 2015).

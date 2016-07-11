@@ -26,12 +26,12 @@ var proj,turn,flip,ctrl,mwheel,mwsens
  ,persp,shading,ambient,shading_model
  ,bg_color,anim,shading_sigma,pole_theta
  ,pole_phi,show_grid,turn_speed,infinity
- ,fov,wheel,filename;
+ ,fov,wheel,filename,mipmap;
 
 // a bunch of other global variables
 
 var SIZE,SCALE;
-var gl,canvas,offCanvas,image,mm_timer=null;
+var gl,canvas,offCanvas,offCanvas2,image,mm_timer=null;
 var texture,rotMat,pMat,pMat2,sVec,rotMat_0;
 var mobMat;
 // the compiled shader programs (each uses a vertex + a fragment shaders)
@@ -72,6 +72,7 @@ var fields = [
 ,{name:'wheel-box', element:'wheelBox', event:'onclick', callback:'wheel_set', variable:'wheel'}
 ,{name:'reset-mob', element:'resetMobBut', event:'onclick', callback:'reset_mob'}
 ,{name:'mwsens-field', element:'mwsensField', event:'onchange', callback:'mwsens_set', variable:'mwsens'}
+,{name:'mipmap-box', element:'mipmapBox', event:'onclick', callback:'mipmap_set', variable:'mipmap'}
 ]; // ,{name:'', element:'', event:'', callback:'', variable:''}
 
 // The object below will be enriched in createPrograms()
@@ -346,6 +347,14 @@ function wheel_set(e) {
   wheel = wheelBox.checked;
 }
 
+function mipmap_set(e) {
+  if(mipmapBox.checked!=mipmap) {
+    mipmap = mipmapBox.checked;
+    makeTexture();
+    draw_all();
+  }
+}
+
 function fov_set(e) {
   var txt=fovField.value;
   var ns=parseFloat(txt);
@@ -578,39 +587,89 @@ function makeTexture() {
   if(turn=='270') ct.rotate(-tau/4);
   if(turn=='0' || turn=='180') ct.translate(-offCanvas.width/2,-offCanvas.height/2);
   else ct.translate(-offCanvas.height/2,-offCanvas.width/2);
-  if(proj=='Cube')
-    ct.drawImage(image,0,0,offCanvas.width,offCanvas.height);
-  else
-    ct.drawImage(image,0,0);
 
   gl.deleteTexture(texture);
   texture=gl.createTexture();
   if(proj=='Cube') {
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
-    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    //gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    var imgData;
-    var x=Math.floor(offCanvas.width/4);
-    var o=[{i:1,j:2},{i:1,j:0},{i:0,j:1},{i:2,j:1},{i:1,j:1},{i:1,j:3}];
-    for(var i=0; i<6; i++) {
-      imgData=ct.getImageData(x*o[i].j,x*o[i].i,x,x);
-      gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgData);
+    if(mipmap) {
+      var imgData;
+      var x=Math.floor(offCanvas.width/4);
+      var w2=Math.pow(2,Math.floor(Math.log(x)/Math.log(2)+0.5));
+      var ext = gl.getExtension("EXT_texture_filter_anisotropic");
+      offCanvas2.width=4*w2;
+      offCanvas2.height=3*w2;
+      ct=offCanvas2.getContext('2d');
+      ct.drawImage(image,0,0,offCanvas2.width,offCanvas2.height);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      var ext = gl.getExtension("EXT_texture_filter_anisotropic");
+      if(ext)
+        gl.texParameterf(gl.TEXTURE_CUBE_MAP, ext.TEXTURE_MAX_ANISOTROPY_EXT, 4);
+      var o=[{i:1,j:2},{i:1,j:0},{i:0,j:1},{i:2,j:1},{i:1,j:1},{i:1,j:3}];
+      for(var i=0; i<6; i++) {
+        imgData=ct.getImageData(w2*o[i].j,w2*o[i].i,w2,w2);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgData);
+      }
+      gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
     }
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+    else {
+      ct.drawImage(image,0,0,offCanvas.width,offCanvas.height);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      //gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      var imgData;
+      var x=Math.floor(offCanvas.width/4);
+      var o=[{i:1,j:2},{i:1,j:0},{i:0,j:1},{i:2,j:1},{i:1,j:1},{i:1,j:3}];
+      for(var i=0; i<6; i++) {
+        imgData=ct.getImageData(x*o[i].j,x*o[i].i,x,x);
+        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgData);
+      }
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+    }
   }
   else {
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, offCanvas);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  //  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
-  //  gl.generateMipmap(gl.TEXTURE_2D);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); //Prevents s-coordinate wrapping (repeating).
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); //Prevents t-coordinate wrapping (repeating).
-    gl.bindTexture(gl.TEXTURE_2D, null);
+    ct.drawImage(image,0,0);
+    if(mipmap) {
+      var ext = gl.getExtension("EXT_texture_filter_anisotropic");
+      var w2=Math.pow(2,Math.floor(Math.log(offCanvas.width)/Math.log(2)+0.5));
+      var h2=Math.pow(2,Math.floor(Math.log(offCanvas.height)/Math.log(2)+0.5));
+      offCanvas2.width=w2;
+      offCanvas2.height=h2;
+      ct=offCanvas2.getContext('2d');
+      ct.drawImage(offCanvas,0,0,offCanvas2.width,offCanvas2.height);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, offCanvas2);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      if(ext)
+        gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, 4);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+      /*
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      */
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+    else {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, offCanvas);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); //Prevents s-coordinate wrapping (repeating).
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); //Prevents t-coordinate wrapping (repeating).
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
   }
 }
 
@@ -883,6 +942,13 @@ function set_shader(pr) {
     //  draw_all();
 }
 
+function set_shader_2(pr) {
+  proj=pr;
+  set_shader(proj);
+  makeTexture();
+  draw_all();
+}
+
 function set_turn(ro) {
   if(ro!=turn) {
     turn=ro;
@@ -915,7 +981,7 @@ function set_mwheel(mw) {
   mwheel=mw;
 }
 
-function set_shad(sh) {
+function set_shading(sh) {
   if(sh!=shading) {
     shading=sh;
     setSVec();
@@ -923,7 +989,7 @@ function set_shad(sh) {
   }
 }
 
-function set_shad_model(sm) {
+function set_shading_model(sm) {
   if(sm!=shading_model) {
     shading_model=sm;
     draw_all();
@@ -941,7 +1007,6 @@ function draw_all() {
 //  gl.uniform2f(zLoc,z0.re,z0.im);
 
   var locs=progs[proj].locs;
-  
   gl.activeTexture(gl.TEXTURE0);
   if(proj=='Cube') gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
   else gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -957,7 +1022,8 @@ function draw_all() {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeIndBuf);
     gl.drawElements(gl.TRIANGLES, 3*12, gl.UNSIGNED_SHORT, 0);
   }
-  else {gl.uniformMatrix4fv(locs.persMat,false,pMat);
+  else {
+    gl.uniformMatrix4fv(locs.persMat,false,pMat);
     gl.uniform3fv(locs.source,sVec);
     gl.uniform1f(locs.ratio, offCanvas.height/offCanvas.width); 
     gl.uniform1f(locs.ambient, ambient);
@@ -1025,9 +1091,6 @@ function draw_all() {
     set_shader(proj);
   }
 
-  
-  
-  
   // Wait for finish
   gl.finish();
 //  if(proj=='Cube') gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
@@ -1041,6 +1104,10 @@ function set_value(src,def) {
   else return src;
 }
 
+function callback_factory(f) {
+  return function(evt) { f(this.value); };
+}
+
 function init(lecanvas,parameters) {
   canvas=lecanvas;
 
@@ -1050,6 +1117,7 @@ function init(lecanvas,parameters) {
   }
     
   offCanvas=document.createElement('canvas');
+  offCanvas2=document.createElement('canvas');
 
   SIZE=canvas.height;
   SCALE=SIZE/2;
@@ -1067,6 +1135,7 @@ function init(lecanvas,parameters) {
   alpha=beta;
   ctrl="planet";
   mwheel="persp";
+  mipmap=false;
   mwsens=1;
   turn=0;
   anim=true;
@@ -1096,38 +1165,23 @@ function init(lecanvas,parameters) {
   canvas.onmouseup=mouse_up;
   canvas.onmouseout=mouse_up;
   canvas.onwheel=mouse_wheel;
-  var radiobuts;
-  radiobuts=document.getElementsByName("type"); 
-  for(var i=0; i<radiobuts.length; i++) {
-    radiobuts[i].onclick= function(evt) { proj=this.value; set_shader(proj); makeTexture(); draw_all();};
-    if(radiobuts[i].value==proj) radiobuts[i].checked=true;
+  var radios=[
+    {name:"type",  value:proj, callback:set_shader_2}
+   ,{name:"turn",  value:'0', callback:set_turn}
+   ,{name:"ctrl",  value:ctrl, callback:set_ctrl}
+   ,{name:"mwheel",value:mwheel, callback:set_mwheel}
+   ,{name:"shad",  value:shading, callback:set_shading}
+   ,{name:"shad-model", value:shading_model, callback:set_shading_model}
+  ]
+  for(var j=0; j<radios.length; j++) {
+    var radio=radios[j];
+    var radiobuts=document.getElementsByName(radio.name); 
+    var temp = radio.value;
+    for(var i=0; i<radiobuts.length; i++) {
+      radiobuts[i].onclick = callback_factory(radio.callback);
+      if(radiobuts[i].value==temp) radiobuts[i].checked=true;
+    }
   }
-  radiobuts=document.getElementsByName("turn"); 
-  for(var i=0; i<radiobuts.length; i++) {
-    radiobuts[i].onclick= function(evt) { set_turn(this.value); };
-    if(radiobuts[i].value=='0') radiobuts[i].checked=true;
-  }
-  radiobuts=document.getElementsByName("ctrl"); 
-  for(var i=0; i<radiobuts.length; i++) {
-    radiobuts[i].onclick= function(evt) { set_ctrl(this.value); };
-    if(radiobuts[i].value==ctrl) radiobuts[i].checked=true;
-  }
-  radiobuts=document.getElementsByName("mwheel"); 
-  for(var i=0; i<radiobuts.length; i++) {
-    radiobuts[i].onclick= function(evt) { set_mwheel(this.value); };
-    if(radiobuts[i].value==mwheel) radiobuts[i].checked=true;
-  }
-  radiobuts=document.getElementsByName("shad"); 
-  for(var i=0; i<radiobuts.length; i++) {
-    radiobuts[i].onclick= function(evt) { set_shad(this.value); };
-    if(radiobuts[i].value==shading) radiobuts[i].checked=true;
-  }
-  radiobuts=document.getElementsByName("shad-model"); 
-  for(var i=0; i<radiobuts.length; i++) {
-    radiobuts[i].onclick= function(evt) { set_shad_model(this.value); };
-    if(radiobuts[i].value==shading_model) radiobuts[i].checked=true;
-  }
-  
   for(i in fields) { list=fields[i];
     if(list.variable) {
       if(window[list.element].type=='checkbox')     
